@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 const QUESTIONS_PER_GAME = 10;
 const QUESTION_MS = 15000;
 const REVEAL_MS = 5000;
+const ROOM_TTL_MS = 10 * 60 * 1000; // rooms live 10 min after everyone leaves, so sending the link can't kill the room
 
 const BANK = JSON.parse(fs.readFileSync(path.join(__dirname, 'questions_bank.json'), 'utf8'));
 
@@ -130,7 +131,20 @@ function startGame(room) {
 
 function cleanupRoom(room) {
   clearTimeout(room.timer);
+  clearTimeout(room.cleanupTimer);
   rooms.delete(room.code);
+}
+
+function scheduleCleanup(room) {
+  clearTimeout(room.cleanupTimer);
+  room.cleanupTimer = setTimeout(() => {
+    if (room.players.length === 0) cleanupRoom(room);
+  }, ROOM_TTL_MS);
+}
+
+function cancelCleanup(room) {
+  clearTimeout(room.cleanupTimer);
+  room.cleanupTimer = null;
 }
 
 io.on('connection', (socket) => {
@@ -140,7 +154,7 @@ io.on('connection', (socket) => {
   socket.on('createRoom', ({ name }) => {
     let code = makeCode();
     while (rooms.has(code)) code = makeCode();
-    room = { code, players: [], questions: [], qi: 0, phase: 'lobby', answers: {}, rounds: [], timer: null };
+    room = { code, players: [], questions: [], qi: 0, phase: 'lobby', answers: {}, rounds: [], timer: null, cleanupTimer: null };
     rooms.set(code, room);
     me = { id: socket.id, name: (name || 'Dami').trim().slice(0, 20) || 'Dami', score: 0, isHost: true };
     room.players.push(me);
@@ -152,11 +166,12 @@ io.on('connection', (socket) => {
   socket.on('joinRoom', ({ code, name }) => {
     const c = String(code || '').trim().toUpperCase();
     const r = rooms.get(c);
-    if (!r) return socket.emit('errorMsg', { message: `Room ${c} not found. Check the code and try again.` });
-    if (r.players.length >= 2) return socket.emit('errorMsg', { message: `Room ${c} is full — Dami vs Betty is a duel, two players only.` });
-    if (r.phase !== 'lobby') return socket.emit('errorMsg', { message: `Room ${c} is already playing. Wait for the next battle.` });
+    if (!r) return socket.emit('errorMsg', { message: `That battle link has expired. Ask Dami to send a fresh link.` });
+    if (r.players.length >= 2) return socket.emit('errorMsg', { message: `That battle is full — Dami vs Betty is a duel, two players only.` });
+    if (r.phase !== 'lobby') return socket.emit('errorMsg', { message: `That battle is already playing. Wait for the next battle.` });
+    cancelCleanup(r);
     room = r;
-    me = { id: socket.id, name: (name || 'Betty').trim().slice(0, 20) || 'Betty', score: 0, isHost: false };
+    me = { id: socket.id, name: (name || 'Betty').trim().slice(0, 20) || 'Betty', score: 0, isHost: r.players.length === 0 };
     room.players.push(me);
     socket.join(c);
     socket.emit('roomJoined', { code: c, players: publicPlayers(room) });
@@ -164,7 +179,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('startGame', () => {
-    if (!room || !me || !me.isHost) return;
+    if (!room || !me) return;
     if (room.players.length < 2) return socket.emit('errorMsg', { message: 'Waiting for your opponent to join first.' });
     if (room.phase !== 'lobby' && room.phase !== 'finished') return;
     startGame(room);
@@ -193,13 +208,18 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (!room || !me) return;
     room.players = room.players.filter((p) => p.id !== socket.id);
-    if (room.players.length === 0) return cleanupRoom(room);
+    // Room survives 10 min with nobody in it, so the host can leave to send the link and come back.
+    if (room.players.length === 0) {
+      room.phase = 'lobby';
+      scheduleCleanup(room);
+      return;
+    }
     // Hand host to the remaining player so the battle can still start.
     room.players[0].isHost = true;
     if (room.phase === 'question' || room.phase === 'reveal') {
       clearTimeout(room.timer);
       room.phase = 'lobby';
-      io.to(room.code).emit('opponentLeft', { message: `${me.name} left. Waiting for a new opponent — share the code ${room.code}.` });
+      io.to(room.code).emit('opponentLeft', { message: `${me.name} left. Waiting for a new opponent — share the invite link.` });
     }
     emitLobby(room);
   });
