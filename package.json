@@ -1,0 +1,1 @@
+{"dependencies":{"express":"^4.21.2","socket.io":"^4.8.1"},"description":"Real-time multiplayer Bible Quiz Battle — Dami vs Betty. 10 questions, 15 seconds each, fastest correct answer wins.","engines":{"node":">=18"},"main":"server.js","name":"bible-quiz-battle","scripts":{"start":"node server.js"},"version":"1.0.0"}

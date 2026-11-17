@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bible Quiz Battle — Dami vs Betty</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: #f5eeda;
+    background-image: radial-gradient(ellipse at top, #fff8e1 0%, #f5eeda 60%, #e8dcc0 100%);
+    color: #3b2f1d; min-height: 100vh; padding: 16px;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  .card {
+    background: #fffdf5; border: 2px solid #b8860b; border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(59,47,29,.18); padding: 22px 18px; margin-top: 12px;
+  }
+  h1 { text-align: center; color: #8a6d00; font-size: 28px; letter-spacing: .5px; }
+  .sub { text-align: center; color: #7a6a45; margin-top: 4px; font-style: italic; }
+  .gold { color: #b8860b; }
+  label { display: block; font-weight: bold; margin: 14px 0 6px; font-size: 14px; }
+  input {
+    width: 100%; padding: 13px; font-size: 17px; border: 2px solid #c9a227;
+    border-radius: 10px; background: #fff; font-family: inherit; text-transform: uppercase;
+  }
+  input.name { text-transform: none; }
+  button {
+    width: 100%; padding: 14px; margin-top: 14px; font-size: 18px; font-weight: bold;
+    font-family: inherit; color: #fff; background: #b8860b; border: none;
+    border-radius: 10px; cursor: pointer;
+  }
+  button:hover { background: #9c7209; }
+  button.secondary { background: #fff; color: #8a6d00; border: 2px solid #b8860b; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .or { text-align: center; margin: 16px 0 2px; color: #7a6a45; font-style: italic; }
+  .code {
+    font-size: 44px; letter-spacing: 10px; text-align: center; color: #8a6d00;
+    font-weight: bold; margin: 8px 0; font-family: 'Courier New', monospace;
+  }
+  .vs { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0; }
+  .player { flex: 1; text-align: center; padding: 12px 6px; border: 2px solid #c9a227; border-radius: 12px; background: #fff8e1; }
+  .player .nm { font-size: 20px; font-weight: bold; }
+  .player .sc { font-size: 26px; color: #8a6d00; font-weight: bold; }
+  .vs-badge { font-size: 22px; font-weight: bold; color: #b8860b; }
+  .timer { height: 10px; background: #e8dcc0; border-radius: 5px; overflow: hidden; margin: 10px 0; }
+  .timer > div { height: 100%; background: #b8860b; width: 100%; }
+  .qnum { text-align: center; color: #7a6a45; font-size: 14px; }
+  .question { font-size: 21px; line-height: 1.4; margin: 12px 0 16px; text-align: center; }
+  .opt {
+    display: block; width: 100%; text-align: left; padding: 14px; margin-top: 10px;
+    font-size: 17px; background: #fff; color: #3b2f1d; border: 2px solid #c9a227; border-radius: 10px;
+  }
+  .opt:hover:not(:disabled) { background: #fff3c4; }
+  .opt.correct { background: #d4edda; border-color: #2e7d32; }
+  .opt.wrong { background: #f8d7da; border-color: #b71c1c; }
+  .opt:disabled { opacity: .85; }
+  .reveal { text-align: center; font-size: 17px; line-height: 1.5; }
+  .reveal .ref { color: #8a6d00; font-weight: bold; margin-top: 6px; }
+  .row { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #e8dcc0; font-size: 16px; }
+  .winner { text-align: center; font-size: 26px; color: #8a6d00; margin: 8px 0; }
+  .note { text-align: center; color: #7a6a45; font-size: 14px; margin-top: 12px; line-height: 1.5; }
+  .err { background: #f8d7da; color: #721c24; border-radius: 8px; padding: 10px; margin-top: 12px; text-align: center; display: none; }
+  .hidden { display: none; }
+  .linkbox { word-break: break-all; background: #fff8e1; border: 1px dashed #b8860b; border-radius: 8px; padding: 10px; font-size: 14px; text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📖 Bible Quiz Battle</h1>
+  <p class="sub">Dami <span class="gold">vs</span> Betty — who knows the Word, and knows it fast?</p>
+
+  <!-- HOME -->
+  <div class="card" id="screen-home">
+    <label for="name">Your name</label>
+    <input id="name" class="name" maxlength="20" value="Dami">
+    <button id="btn-create">Create a room</button>
+    <p class="or">— or join a battle —</p>
+    <label for="code">Room code (4 letters)</label>
+    <input id="code" maxlength="4" placeholder="e.g. KXRD" autocomplete="off">
+    <button id="btn-join" class="secondary">Join room</button>
+    <p class="note">10 Bible questions · 15 seconds each · about 3 minutes<br>Correct = 100 points + up to 100 for speed. Wrong or too slow = 0.</p>
+    <div class="err" id="err-home"></div>
+  </div>
+
+  <!-- LOBBY -->
+  <div class="card hidden" id="screen-lobby">
+    <p class="qnum">ROOM CODE — send this to your opponent</p>
+    <div class="code" id="room-code">----</div>
+    <div class="linkbox" id="room-link"></div>
+    <button id="btn-copy">Copy invite link</button>
+    <div class="vs" id="lobby-vs"></div>
+    <p class="note" id="lobby-note">Waiting for your opponent to join…</p>
+    <button id="btn-start" disabled>Start battle</button>
+  </div>
+
+  <!-- GAME -->
+  <div class="card hidden" id="screen-game">
+    <div class="vs" id="game-vs"></div>
+    <p class="qnum" id="qnum"></p>
+    <div class="timer"><div id="timer-bar"></div></div>
+    <p class="question" id="question"></p>
+    <div id="options"></div>
+    <p class="note" id="game-note"></p>
+  </div>
+
+  <!-- REVEAL -->
+  <div class="card hidden" id="screen-reveal">
+    <div class="vs" id="reveal-vs"></div>
+    <div class="reveal" id="reveal-body"></div>
+    <p class="note">Next question coming…</p>
+  </div>
+
+  <!-- FINISHED -->
+  <div class="card hidden" id="screen-finished">
+    <p class="winner" id="winner-line"></p>
+    <div id="breakdown"></div>
+    <button id="btn-rematch">Rematch</button>
+    <p class="note" id="rematch-note"></p>
+    <button id="btn-new" class="secondary">New room</button>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const $ = (id) => document.getElementById(id);
+  let myId = null, myName = 'Dami', roomCode = null, isHost = false;
+  let timerInt = null, questionEndsAt = 0, lastScores = [];
+
+  function show(id) {
+    ['screen-home','screen-lobby','screen-game','screen-reveal','screen-finished'].forEach(s => $(s).classList.add('hidden'));
+    $(id).classList.remove('hidden');
+  }
+  function showErr(box, msg) { const el = $(box); el.textContent = msg; el.style.display = 'block'; }
+  function vsHtml(players) {
+    if (!players || players.length === 0) return '';
+    const a = players[0], b = players[1];
+    return `<div class="player"><div class="nm">${esc(a.name)}</div><div class="sc">${a.score}</div></div>
+      <div class="vs-badge">VS</div>
+      <div class="player"><div class="nm">${b ? esc(b.name) : '…'}</div><div class="sc">${b ? b.score : '—'}</div></div>`;
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // Auto-fill room code from the invite link ?room=XXXX
+  const params = new URLSearchParams(location.search);
+  if (params.get('room')) { $('code').value = params.get('room').toUpperCase(); $('name').value = 'Betty'; }
+
+  $('btn-create').onclick = () => {
+    myName = $('name').value.trim() || 'Dami';
+    socket.emit('createRoom', { name: myName });
+  };
+  $('btn-join').onclick = () => {
+    myName = $('name').value.trim() || 'Betty';
+    const code = $('code').value.trim().toUpperCase();
+    if (!code) return showErr('err-home', 'Type the 4-letter room code first.');
+    socket.emit('joinRoom', { code, name: myName });
+  };
+  $('btn-copy').onclick = async () => {
+    try { await navigator.clipboard.writeText($('room-link').textContent); $('btn-copy').textContent = 'Copied — send it to her!'; }
+    catch (e) { $('btn-copy').textContent = 'Copy the link above'; }
+  };
+  $('btn-start').onclick = () => socket.emit('startGame');
+  $('btn-rematch').onclick = () => { socket.emit('rematch'); $('rematch-note').textContent = 'Waiting for your opponent to accept…'; };
+  $('btn-new').onclick = () => location.href = location.pathname;
+
+  socket.on('connect', () => { myId = socket.id; });
+
+  function enterLobby(code, players) {
+    roomCode = code;
+    isHost = players.some(p => p.id === myId && p.isHost);
+    $('room-code').textContent = code;
+    $('room-link').textContent = location.origin + location.pathname + '?room=' + code;
+    $('lobby-vs').innerHTML = vsHtml(players);
+    $('lobby-note').textContent = players.length < 2 ? 'Waiting for your opponent to join…' : 'Both players are in — host, start the battle!';
+    $('btn-start').disabled = !(isHost && players.length === 2);
+    $('btn-start').textContent = isHost ? 'Start battle' : 'Waiting for the host to start…';
+    show('screen-lobby');
+  }
+  socket.on('roomCreated', (d) => enterLobby(d.code, d.players));
+  socket.on('roomJoined', (d) => enterLobby(d.code, d.players));
+  socket.on('lobby', (d) => { if (roomCode === d.code) enterLobby(d.code, d.players); });
+  socket.on('errorMsg', (d) => showErr('err-home', d.message));
+  socket.on('opponentLeft', (d) => { showErr('err-home', ''); alert(d.message); enterLobby(roomCode, lastScores.length ? lastScores : [{ id: myId, name: myName, score: 0, isHost: true }]); });
+
+  socket.on('started', () => { show('screen-game'); });
+
+  socket.on('question', (d) => {
+    lastScores = d.scores;
+    $('game-vs').innerHTML = vsHtml(d.scores);
+    $('qnum').textContent = `Question ${d.index + 1} of ${d.total}`;
+    $('question').textContent = d.question;
+    $('game-note').textContent = '';
+    const box = $('options'); box.innerHTML = '';
+    d.options.forEach((opt, i) => {
+      const b = document.createElement('button');
+      b.className = 'opt'; b.textContent = 'ABCD'[i] + '. ' + opt;
+      b.onclick = () => { socket.emit('answer', { choice: i }); };
+      box.appendChild(b);
+    });
+    questionEndsAt = Date.now() + d.seconds * 1000;
+    clearInterval(timerInt);
+    timerInt = setInterval(() => {
+      const left = Math.max(0, questionEndsAt - Date.now());
+      $('timer-bar').style.width = (left / (d.seconds * 1000) * 100) + '%';
+      if (left === 0) clearInterval(timerInt);
+    }, 100);
+    show('screen-game');
+  });
+
+  socket.on('answerLocked', (d) => {
+    document.querySelectorAll('.opt').forEach((b, i) => { b.disabled = true; if (i === d.choice) b.style.background = '#fff3c4'; });
+    $('game-note').textContent = 'Answer locked in. Waiting for your opponent…';
+  });
+  socket.on('answered', (d) => { $('game-note').textContent = `${d.count} of ${d.total} answered…`; });
+
+  socket.on('reveal', (d) => {
+    clearInterval(timerInt);
+    lastScores = d.scores;
+    $('reveal-vs').innerHTML = vsHtml(d.scores);
+    const rows = d.results.map(r => {
+      const mark = r.choice === null ? '⏱ too slow' : (r.choice === d.correct ? '✅ correct' : '❌ wrong');
+      return `<div class="row"><span>${esc(r.name)} — ${mark}</span><b>+${r.earned}</b></div>`;
+    }).join('');
+    $('reveal-body').innerHTML =
+      `<p>Correct answer: <b>${'ABCD'[d.correct]}</b></p><p class="ref">${esc(d.ref)}</p>` + rows;
+    show('screen-reveal');
+  });
+
+  socket.on('finished', (d) => {
+    const w = d.winner;
+    $('winner-line').textContent = w ? `🏆 ${w.name} wins, ${w.score} points!` : '🤝 It is a draw!';
+    $('breakdown').innerHTML = d.rounds.map(r =>
+      `<div class="row"><span>Q${r.index + 1} · ${esc(r.ref)}</span><span>${r.results.map(x => esc(x.name) + ' +' + x.earned).join(' · ')}</span></div>`
+    ).join('') + `<div class="row"><b>Final</b><b>${d.scores.map(s => esc(s.name) + ' ' + s.score).join(' — ')}</b></div>`;
+    $('rematch-note').textContent = '';
+    show('screen-finished');
+  });
+  socket.on('rematchStatus', (d) => { $('rematch-note').textContent = `${d.ready} of ${d.total} ready for a rematch…`; });
+</script>
+</body>
+</html>
