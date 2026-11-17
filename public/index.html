@@ -75,19 +75,14 @@
   <div class="card" id="screen-home">
     <label for="name">Your name</label>
     <input id="name" class="name" maxlength="20" value="Dami">
-    <button id="btn-create">Create a room</button>
-    <p class="or">— or join a battle —</p>
-    <label for="code">Room code (4 letters)</label>
-    <input id="code" maxlength="4" placeholder="e.g. KXRD" autocomplete="off">
-    <button id="btn-join" class="secondary">Join room</button>
-    <p class="note">10 Bible questions · 15 seconds each · about 3 minutes<br>Correct = 100 points + up to 100 for speed. Wrong or too slow = 0.</p>
+    <button id="btn-create">Create a battle</button>
+    <p class="note">10 Bible questions · 15 seconds each · about 3 minutes<br>Correct = 100 points + up to 100 for speed. Wrong or too slow = 0.<br><br>Tap Create a battle, then share the invite link. No code — your opponent taps the link and joins.</p>
     <div class="err" id="err-home"></div>
   </div>
 
   <!-- LOBBY -->
   <div class="card hidden" id="screen-lobby">
-    <p class="qnum">ROOM CODE — send this to your opponent</p>
-    <div class="code" id="room-code">----</div>
+    <p class="qnum">SHARE THIS LINK — NO CODE NEEDED</p>
     <div class="linkbox" id="room-link"></div>
     <button id="btn-copy">Copy invite link</button>
     <div class="vs" id="lobby-vs"></div>
@@ -143,19 +138,14 @@
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  // Auto-fill room code from the invite link ?room=XXXX
+  // No code to type: the invite link ?room=XXXX joins automatically.
   const params = new URLSearchParams(location.search);
-  if (params.get('room')) { $('code').value = params.get('room').toUpperCase(); $('name').value = 'Betty'; }
+  const inviteRoom = params.get('room') ? params.get('room').toUpperCase() : null;
+  if (inviteRoom) { $('name').value = 'Betty'; }
 
   $('btn-create').onclick = () => {
     myName = $('name').value.trim() || 'Dami';
     socket.emit('createRoom', { name: myName });
-  };
-  $('btn-join').onclick = () => {
-    myName = $('name').value.trim() || 'Betty';
-    const code = $('code').value.trim().toUpperCase();
-    if (!code) return showErr('err-home', 'Type the 4-letter room code first.');
-    socket.emit('joinRoom', { code, name: myName });
   };
   $('btn-copy').onclick = async () => {
     try { await navigator.clipboard.writeText($('room-link').textContent); $('btn-copy').textContent = 'Copied — send it to her!'; }
@@ -165,17 +155,25 @@
   $('btn-rematch').onclick = () => { socket.emit('rematch'); $('rematch-note').textContent = 'Waiting for your opponent to accept…'; };
   $('btn-new').onclick = () => location.href = location.pathname;
 
-  socket.on('connect', () => { myId = socket.id; });
+  socket.on('connect', () => {
+    myId = socket.id;
+    if (inviteRoom) {
+      myName = $('name').value.trim() || 'Betty';
+      $('err-home').textContent = 'Joining battle…';
+      $('err-home').style.display = 'block';
+      socket.emit('joinRoom', { code: inviteRoom, name: myName });
+    }
+  });
 
   function enterLobby(code, players) {
     roomCode = code;
+    $('err-home').style.display = 'none';
     isHost = players.some(p => p.id === myId && p.isHost);
-    $('room-code').textContent = code;
     $('room-link').textContent = location.origin + location.pathname + '?room=' + code;
     $('lobby-vs').innerHTML = vsHtml(players);
-    $('lobby-note').textContent = players.length < 2 ? 'Waiting for your opponent to join…' : 'Both players are in — host, start the battle!';
-    $('btn-start').disabled = !(isHost && players.length === 2);
-    $('btn-start').textContent = isHost ? 'Start battle' : 'Waiting for the host to start…';
+    $('lobby-note').textContent = players.length < 2 ? 'Waiting for your opponent to join…' : 'Both players are in — tap Start battle!';
+    $('btn-start').disabled = !(players.length === 2);
+    $('btn-start').textContent = 'Start battle';
     show('screen-lobby');
   }
   socket.on('roomCreated', (d) => enterLobby(d.code, d.players));
